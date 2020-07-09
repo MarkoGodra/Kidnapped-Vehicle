@@ -70,6 +70,46 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
    *  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
    *  http://www.cplusplus.com/reference/random/default_random_engine/
    */
+  // Unpack std deviations
+  double std_x = std_pos[0];
+  double std_y = std_pos[1];
+  double std_theta = std_pos[2];
+
+  // Create normal distirubtions
+  std::default_random_engine gen;
+  std::normal_distribution<double> dist_x(0, std_x);
+  std::normal_distribution<double> dist_y(0, std_y);
+  std::normal_distribution<double> dist_theta(0, std_theta);
+
+  for(auto i = 0; i < num_particles; i++)
+  {
+    // Initial x,y,theta are particles current values
+    double x0 = particles[i].x;
+    double y0 = particles[i].y;
+    double theta0 = particles[i].theta;
+
+    // Avoid division by zero
+    if(fabs(yaw_rate) > 0.001)
+    {
+      double v_theta_dot = velocity / yaw_rate;
+
+      // Update with regular motion model
+      particles[i].x = x0 + (v_theta_dot * (sin(theta0 + yaw_rate * delta_t) - sin(theta0)));
+      particles[i].y = y0 + (v_theta_dot * (cos(theta0) - cos(theta0 + yaw_rate * delta_t)));
+      particles[i].theta = theta0 + (yaw_rate * delta_t);
+    }
+    else
+    {
+      // Straight line - no change of yaw
+      particles[i].x = x0 + velocity * delta_t * cos(theta0);
+      particles[i].y = y0 + velocity * delta_t * sin(theta0);
+    }
+
+    // Add random noise
+    particles[i].x += dist_x(gen);
+    particles[i].y += dist_y(gen);
+    particles[i].theta += dist_theta(gen);
+  }
 }
 
 void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, 
