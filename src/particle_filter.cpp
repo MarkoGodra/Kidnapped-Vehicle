@@ -42,6 +42,8 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   std::normal_distribution<double> dist_y(y, std_y);
   std::normal_distribution<double> dist_theta(theta, std_theta);
 
+  // Resize weights vector
+  weights.resize(num_particles);
 
   for(auto i = 0; i < num_particles; i++)
   {
@@ -122,6 +124,7 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
    *   probably find it useful to implement this method and use it as a helper 
    *   during the updateWeights phase.
    */
+
 
 }
 
