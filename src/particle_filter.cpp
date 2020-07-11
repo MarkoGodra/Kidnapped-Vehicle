@@ -124,8 +124,7 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
    *   probably find it useful to implement this method and use it as a helper 
    *   during the updateWeights phase.
    */
-
-
+  
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
@@ -145,6 +144,79 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
 
+  // TODO: For each particle
+  // 1. Transform observation (car coordinate sys -> map coordinate sys)
+  // 2. Associate transformed observations with nearest map landmarks
+  // 3. Update weights
+  // 3a. Multi dimensional gausian func
+  // 3b. Combine probs
+
+  for(size_t i = 0; i < particles.size(); i++)
+  {
+    // 1. Transform observations to map and then move to particle referent frame
+    
+    // Prepare particle coordinates
+    double xp = particles[i].x;
+    double yp = particles[i].y;
+    double thetap = particles[i].theta;
+    double weight = 1.0;
+
+    // Prepare vector in which we shall place landmarks that are within sensor range
+    std::vector<LandmarkObs> landmarks_in_range;
+    
+    for(const auto& landmark : map_landmarks.landmark_list)
+    {
+      // Only consider map landmarks that are in sensor range from current particle
+      if(dist(xp, yp, landmark.x_f, landmark.y_f) < sensor_range)
+      {
+        LandmarkObs observed_landmark;
+        observed_landmark.x = landmark.x_f;
+        observed_landmark.y = landmark.y_f;
+        observed_landmark.id = landmark.id_i;
+        landmarks_in_range.push_back(observed_landmark);
+      }
+    }
+
+    // Iterate through observations
+    for(const auto& observation : observations)
+    {
+      double xc = observation.x;
+      double yc = observation.y;
+
+      // For each observation convert it from car coordinate system to map coordinate systems (car c.s. -> map c.s.)
+      double xm = xp + cos(thetap) * xc - sin(thetap) * yc;
+      double ym = yp + sin(thetap) * xc + cos(thetap) * yc;
+
+      double min_dist_obs_to_landmark = sensor_range;
+      LandmarkObs nearest_landmark;
+      
+      // Find landmark that is nearest to current observation
+
+      // For each landmark
+      for(const auto& landmark : landmarks_in_range)
+      {
+        // Measure current distance from current observation to landmark
+        double dist_obs_to_landmark = dist(xm, ym, landmark.x, landmark.y);
+
+        // If distance is smaller than previous min
+        if(dist_obs_to_landmark < min_dist_obs_to_landmark)
+        {
+          // Update nearest landmark and comparison distance
+          nearest_landmark = landmark;
+          min_dist_obs_to_landmark = dist_obs_to_landmark;
+        }
+      }
+
+      // Calculate gaussian distribution
+      weight *= multivProb(std_landmark[0], std_landmark[1], xm, ym, nearest_landmark.x, nearest_landmark.y);
+    }
+
+    // Update particle weight
+    particles[i].weight = weight;
+    weights[i] = weight;
+  }
+
+
 }
 
 void ParticleFilter::resample() {
@@ -155,6 +227,19 @@ void ParticleFilter::resample() {
    *   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
    */
 
+  // Prepare vector for new set of particles
+  std::vector<Particle> surviving_particles;
+
+  std::default_random_engine gen;
+  std::discrete_distribution<int> distribution(weights.begin(), weights.end());
+  
+  for(auto i = 0; i < num_particles; i++)
+  {
+    int index = distribution(gen);
+    surviving_particles.push_back(particles[index]);
+  }
+
+  particles = surviving_particles;
 }
 
 void ParticleFilter::SetAssociations(Particle& particle, 
@@ -194,4 +279,22 @@ string ParticleFilter::getSenseCoord(Particle best, string coord) {
   string s = ss.str();
   s = s.substr(0, s.length()-1);  // get rid of the trailing space
   return s;
+}
+
+double ParticleFilter::multivProb(double sig_x, double sig_y, double x_obs, double y_obs, double mu_x, double mu_y)
+{
+  // calculate normalization term
+  double gauss_norm;
+  gauss_norm = 1 / (2 * M_PI * sig_x * sig_y);
+
+  // calculate exponent
+  double exponent;
+  exponent = (pow(x_obs - mu_x, 2) / (2 * pow(sig_x, 2)))
+               + (pow(y_obs - mu_y, 2) / (2 * pow(sig_y, 2)));
+    
+  // calculate weight using normalization terms and exponent
+  double weight;
+  weight = gauss_norm * exp(-exponent);
+    
+  return weight;
 }

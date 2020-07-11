@@ -120,6 +120,12 @@ class ParticleFilter {
   
   // Vector of weights of all particles
   std::vector<double> weights; 
+
+  /**
+   * Helper function used to calculate multivar gaussian prob
+   */
+  double multivProb(double sig_x, double sig_y, double x_obs, double y_obs,
+                   double mu_x, double mu_y);
 };
 
 #endif  // PARTICLE_FILTER_H_
